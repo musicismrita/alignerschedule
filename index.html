@@ -136,7 +136,7 @@ const rowBlock=(sc,idx,isV)=>{const v=isV(sc.no);const row=`<div class="r${v?' v
   const roundLabel=(rn)=>({zh:'第 '+cnZh(rn)+' 輪',ja:'第'+rn+'ラウンド',en:'Round '+rn})[lang];
   const multi=roundsData.length>1;
   const sections=roundsData.map((rd,idx)=>{const vset=vsets[idx];const isV=(n)=>vset.has(n);const rows=rd.stages.map((sc,i)=>rowBlock(sc,i,isV)).join('');const rgTxt=(n)=>lang==='zh'?('第 1–'+n+' 副'):('Stage 1–'+n);const hd=multi?`<div class="rdhead">${roundLabel(rd.round)}（${rgTxt(rd.stages[rd.stages.length-1].no)}）</div>`:'';return hd+`<div class="sched">${thead}${rows}</div>`;}).join('');
-  const clinic=esc(CONFIG.clinicName||'BBL CRM System');const name=esc(docName(p,lang));const pid=p.invisalignPID?('PID '+algPID8(p.invisalignPID)):'';const phone=esc(CONFIG.clinicPhone||'');
+  const clinic=esc(CONFIG.clinicName||'');const name=esc(docName(p,lang));const pid=p.invisalignPID?('PID '+algPID8(p.invisalignPID)):'';const phone=esc(CONFIG.clinicPhone||'');
   let vp=[];if(wt==='ipe'){vp=[{zh:'IPE 每 30 天回診一次',ja:'IPEは30日ごとに来院',en:'IPE: every 30 days'}[lang]];}else{vp.push({zh:'第一輪：第 5 副後首次、之後每 8 副',ja:'第1R：ステージ5後・以降8ごと',en:'Round 1: after Stage 5, then every 8'}[lang]);if(multi)vp.push({zh:'其他輪：每 8 副',ja:'他R：8ごと',en:'Others: every 8'}[lang]);}
   vp.push({zh:'各輪最後一副也需回診',ja:'各Rの最終ステージも来院',en:'last stage of each round too'}[lang]);
   const vnote=(lang==='en'?'':'※ ')+{zh:'請在標有鈴鐺圖示的副數回診',ja:'ベルのマークがある場合は、クリニックの受診予約をお取りください。',en:'When you see the bell icon, please schedule a clinic visit.'}[lang];
@@ -301,7 +301,7 @@ function buildPatient(){
   if(isNaN(to)||to<1){toast('請輸入結束副');return null;}
   if(to<from){var _t=from;from=to;to=_t;}
   if(!start){toast('請選擇起戴日');return null;}
-  CONFIG.clinicName=document.getElementById('f_clinic').value.trim()||'BBL CRM System';
+  CONFIG.clinicName=document.getElementById('f_clinic').value.trim();
   CONFIG.clinicPhone=document.getElementById('f_phone').value.trim();
   return {name:name||'（未命名）',en:en,invisalignPID:pid,wearType:wt,
     visitStages:(g_visits!==null)?{1:g_visits.slice()}:undefined,
@@ -353,13 +353,13 @@ function algA4LabelSheetHTML(stages,o){
    +".hstage{color:"+(o.mono?'#fff':'#8fe3d3')+"}.hpid{color:#ccc;font-weight:400;font-size:7pt}"
    +".lbody{flex:1;display:flex;align-items:center;justify-content:center;gap:1.5mm;padding:0 2mm}"
    +".lwlab{font-size:7.5pt;color:#333;display:flex;align-items:center;gap:0.5mm;white-space:nowrap}"
-   +".lbig{font-weight:800;font-size:22pt;letter-spacing:0.3pt;color:"+HEAD+"}"
+   +".lbig{font-weight:800;font-size:22pt;letter-spacing:1.5px;color:"+HEAD+"}"
    +".csub{text-align:center;font-size:7pt;color:"+CH+";line-height:1;padding-bottom:0.6mm}"
    /* D */
    +".cellD{padding:0.6mm 2mm;justify-content:center}"
    +".dtop{display:flex;justify-content:space-between;align-items:center;font-size:7.5pt;gap:1mm}"
    +".dn{font-weight:700;color:"+HEAD+";white-space:nowrap;overflow:hidden}.dstage{font-weight:800;color:"+ACC+";white-space:nowrap}.dsp{flex:1}"
-   +".dbig{display:flex;align-items:center;justify-content:center;gap:1mm;font-weight:800;font-size:26pt;line-height:1;margin:0.2mm 0;color:"+HEAD+"}"
+   +".dbig{display:flex;align-items:center;justify-content:center;gap:1mm;font-weight:800;letter-spacing:1.5px;font-size:26pt;line-height:1;margin:0.2mm 0;color:"+HEAD+"}"
    +".dsub{text-align:center;font-size:7pt;color:"+CH+";line-height:1}";
   return '<!doctype html><html><head><meta charset="utf-8"><title>A4 貼紙</title><style>'+css+'</style></head><body>'+pages+'</body></html>';
 }
