@@ -58,8 +58,8 @@ label.fld .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px
   <label class="chk"><input type="checkbox" id="f_paid"> 一次付清（印「已付清」）</label>
   <label class="chk"><input type="checkbox" id="f_mono"> 黑白列印</label>
 </div>
-<div class="row" style="gap:8px"><button class="btn" style="flex:1" onclick="doA4('print')">🖨️ 列印</button><button class="btn ghost" style="flex:1" onclick="doA4('pdf')">📄 PDF</button><button class="btn ghost" style="flex:1" onclick="doA4('word')">📝 Word</button></div>
-<div class="hint">回診時間依規則自動標記（第一輪 5/13/21…＋最後一副；其他輪 8/16/24…；IPE 每 30 天；與最後一副相差 4 副以內自動略過）。</div>
+<div style="background:var(--soft);border:1px dashed var(--teal);border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:13px"><b style="color:var(--teal-d)">回診時間</b>　<span id="visitSummary" style="color:#555">自動</span></div><div class="row" style="gap:6px"><button type="button" class="btn ghost" style="padding:6px 12px" onclick="openVisitEditor()">✏️ 編輯</button><button type="button" class="btn ghost" style="padding:6px 12px" onclick="resetVisits()">↺ 自動</button></div></div><div id="visitEditor" style="display:none;margin-top:10px"><div id="visitChips" style="display:flex;flex-wrap:wrap;gap:5px"></div><div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn" style="padding:6px 14px" onclick="applyVisits()">套用</button><button type="button" class="btn ghost" style="padding:6px 14px" onclick="document.getElementById('visitEditor').style.display='none'">收起</button></div><div class="hint" style="margin-top:6px">綠色＝該副回診。可自由勾選；「↺ 自動」恢復系統建議。</div></div></div><div class="row" style="gap:8px"><button class="btn" style="flex:1" onclick="doA4('print')">🖨️ 列印</button><button class="btn ghost" style="flex:1" onclick="doA4('pdf')">📄 PDF</button><button class="btn ghost" style="flex:1" onclick="doA4('word')">📝 Word</button></div>
+<div class="hint">未編輯時，回診依規則自動標記（第一輪 5/13/21…＋最後一副；IPE 每 30 天；與最後一副相差 4 副以內自動略過）。</div>
 </div>
 
 <div class="card">
@@ -272,6 +272,7 @@ function buildPatient(){
   CONFIG.clinicName=document.getElementById('f_clinic').value.trim()||'BBL CRM System';
   CONFIG.clinicPhone=document.getElementById('f_phone').value.trim();
   return {name:name||'（未命名）',en:en,invisalignPID:pid,wearType:wt,
+    visitStages:(g_visits!==null)?{1:g_visits.slice()}:undefined,
     followups:[{id:'f1',round:1,alignerFrom:from,alignerTo:to,daysPerAligner:days,startWearDate:start}]};
 }
 function stageList(p){var c=computeFollowup(p.followups[0]);return c.ok?c.schedule:[];}
@@ -346,6 +347,27 @@ function printLabels(){
   var spec={cols:parseInt(document.getElementById('sp_cols').value,10)||4,rows:parseInt(document.getElementById('sp_rows').value,10)||11,cw:parseFloat(document.getElementById('sp_cw').value)||52.5,ch:parseFloat(document.getElementById('sp_ch').value)||27};var _o={nm:nm,pid:pid,fields:fields,lang:lang,offX:offX,offY:offY,style:style,mono:mono,spec:spec};return {html:algA4LabelSheetHTML(stages,_o),name:a4ExportName('A4貼紙',p),stages:stages,opts:_o};
 }
 function doLabels(mode){_savePref();var r=printLabels();if(!r)return;if(mode==='word'){a4WordDoc(a4LabelWordHTML(r.stages,r.opts),r.name);}else if(mode==='pdf')a4Pdf(r.html,r.name);else a4Print(r.html);}
+var g_visits=null; // null=自動；否則為副數陣列
+function _autoVisits(){var p=buildPatientQuiet();if(!p)return {stages:[],auto:[]};var st=stageList(p);if(!st.length)return {stages:[],auto:[]};
+  var rd=a4RoundsData(p,null);var set=new Set();rd.forEach(function(r){var a=computeAutoVisits(r.stages,r.isFirst,p.wearType);a.forEach(function(n){set.add(n);});});
+  return {stages:st.map(function(s){return s.no;}),auto:[...set].sort(function(a,b){return a-b;})};}
+function buildPatientQuiet(){var _t=window.toast;window.toast=function(){};var p=null;try{p=buildPatient();}catch(e){}window.toast=_t;return p;}
+function _renderVisitSummary(){var el=document.getElementById('visitSummary');if(!el)return;
+  if(g_visits===null){var a=_autoVisits().auto;el.textContent='自動（'+(a.length?a.join('、'):'—')+'）';}
+  else el.textContent=(g_visits.length?g_visits.join('、'):'無')+'（自訂）';}
+function openVisitEditor(){var info=_autoVisits();if(!info.stages.length){toast('請先填總副數與起戴日');return;}
+  var cur=(g_visits===null)?new Set(info.auto):new Set(g_visits);
+  var box=document.getElementById('visitChips');box.innerHTML='';
+  info.stages.forEach(function(n){var on=cur.has(n);var b=document.createElement('button');b.type='button';b.textContent=n;
+    b.style.cssText='min-width:34px;padding:6px 8px;border-radius:8px;border:1px solid '+(on?'#2b7a6e':'#cdd8d3')+';background:'+(on?'#2b7a6e':'#fff')+';color:'+(on?'#fff':'#333')+';font-weight:'+(on?'700':'400')+';cursor:pointer';
+    b.dataset.n=n;b.dataset.on=on?'1':'0';
+    b.onclick=function(){var o=b.dataset.on==='1';o=!o;b.dataset.on=o?'1':'0';b.style.background=o?'#2b7a6e':'#fff';b.style.color=o?'#fff':'#333';b.style.border='1px solid '+(o?'#2b7a6e':'#cdd8d3');b.style.fontWeight=o?'700':'400';};
+    box.appendChild(b);});
+  document.getElementById('visitEditor').style.display='block';}
+function applyVisits(){var box=document.getElementById('visitChips');var arr=[];box.querySelectorAll('button').forEach(function(b){if(b.dataset.on==='1')arr.push(parseInt(b.dataset.n,10));});
+  arr.sort(function(a,b){return a-b;});g_visits=arr;_renderVisitSummary();document.getElementById('visitEditor').style.display='none';toast('已套用回診設定');}
+function resetVisits(){g_visits=null;_renderVisitSummary();var ed=document.getElementById('visitEditor');if(ed)ed.style.display='none';toast('已恢復自動');}
+
 function genA4(){
   var p=buildPatient();if(!p)return;
   var lang=document.getElementById('f_lang').value;
