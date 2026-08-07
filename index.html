@@ -64,7 +64,7 @@ label.fld .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px
 
 <div class="card">
 <h2>A4 逐副貼紙（US2610 · 5×15 · 42×19.5mm）</h2>
-<div class="lab" style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">要印哪些欄位</div>
+<div class="lab" style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">樣式</div><div class="seg" style="margin-bottom:10px"><button type="button" id="segC" class="on" onclick="pickStyle('C')">C · 日期大＋黑條</button><button type="button" id="segD" onclick="pickStyle('D')">D · 日期最大</button></div><input type="hidden" id="lb_style" value="C"><input type="checkbox" id="lb_styleD" style="display:none"><div class="lab" style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">要印哪些欄位</div>
 <div style="margin-bottom:6px">
   <label class="chk"><input type="checkbox" id="lb_name" checked> 姓名</label>
   <label class="chk"><input type="checkbox" id="lb_stage" checked> 第N副</label>
@@ -178,6 +178,58 @@ function mmdd(ds){var d=new Date(ds+'T00:00:00');if(isNaN(d))return ds;return St
 function labelLangTxt(lang){return {zh:{stage:'第 %n 副',wear:'起戴',change:'換套',visit:'回診'},
   ja:{stage:'ステージ %n',wear:'装着',change:'交換',visit:'来院'},
   en:{stage:'Stage %n',wear:'Wear',change:'Change',visit:'Visit'}}[lang]||{stage:'第 %n 副',wear:'起戴',change:'換套',visit:'回診'};}
+function algA4LabelSheetHTML(stages,o){
+  var mmdd=function(ds){var d=new Date(ds+'T00:00:00');if(isNaN(d))return ds;return String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');};
+  var LT={zh:{stage:'第 %n 副',wear:'起戴',change:'換'},ja:{stage:'ステージ %n',wear:'装着',change:'交換'},en:{stage:'St.%n',wear:'Wear',change:'Chg'}}[o.lang]||{stage:'第 %n 副',wear:'起戴',change:'換'};
+  var fl=o.fields, style=o.style||'C';
+  var TOOTH='<svg viewBox="0 0 24 24" class="tth"><path d="M12 2C8 2 5.5 3.6 5.5 7c0 2.2.6 4.3 1.1 7 .4 2.2.6 6 2.1 6 1.1 0 1.1-2.2 1.6-4.2.3-1.2.5-2.1 1.7-2.1s1.4.9 1.7 2.1c.5 2 .5 4.2 1.6 4.2 1.5 0 1.7-3.8 2.1-6 .5-2.7 1.1-4.8 1.1-7C18.5 3.6 16 2 12 2z"/></svg>';
+  function cellC(sc){
+    var head=[];
+    if(fl.name)head.push('<span>'+esc(o.nm)+'</span>');
+    if(fl.stage)head.push('<span class="hstage">'+esc(LT.stage.replace('%n',sc.no))+'</span>');
+    if(fl.pid&&o.pid)head.push('<span class="hpid">'+esc(o.pid)+'</span>');
+    var big=[];
+    if(fl.wear)big.push('<span class="lwlab">'+(o.mono?'':TOOTH)+esc(LT.wear)+'</span><span class="lbig">'+mmdd(sc.wearDate)+'</span>');
+    else if(fl.change)big.push('<span class="lwlab">'+esc(LT.change)+'</span><span class="lbig">'+mmdd(sc.changeDate)+'</span>');
+    var sub=(fl.wear&&fl.change)?'<div class="csub">'+esc(LT.change)+' '+mmdd(sc.changeDate)+'</div>':'';
+    return '<div class="cell">'+(head.length?'<div class="lhead">'+head.join('　')+'</div>':'')+'<div class="lbody">'+(big.join('')||('<span class="lbig">'+sc.no+'</span>'))+'</div>'+sub+'</div>';
+  }
+  function cellD(sc){
+    var top=[];
+    if(fl.name)top.push('<span class="dn">'+esc(o.nm)+'</span>');
+    if(fl.pid&&o.pid)top.push('<span class="dn">'+esc(o.pid)+'</span>');
+    if(fl.stage)top.push('<span class="dstage">'+esc(LT.stage.replace('%n',sc.no))+'</span>');
+    var dv=fl.wear?mmdd(sc.wearDate):(fl.change?mmdd(sc.changeDate):sc.no);
+    var sub=(fl.wear&&fl.change)?'<div class="dsub">'+esc(LT.change)+' '+mmdd(sc.changeDate)+'</div>':'';
+    return '<div class="cell cellD">'+(top.length?'<div class="dtop">'+top.join('<span class="dsp"></span>')+'</div>':'')+'<div class="dbig">'+(o.mono?'':TOOTH)+'<span>'+dv+'</span></div>'+sub+'</div>';
+  }
+  var perPage=75,pages='';var mk=style==='D'?cellD:cellC;
+  for(var st=0;st<stages.length;st+=perPage){var chunk=stages.slice(st,st+perPage),cells='';
+    for(var i=0;i<chunk.length;i++)cells+=mk(chunk[i]);
+    for(var k=chunk.length;k<perPage;k++)cells+='<div class="cell"></div>';
+    pages+='<div class="sheet"><div class="grid" style="transform:translate('+(o.offX||0)+'mm,'+(o.offY||0)+'mm)">'+cells+'</div></div>';}
+  var HEAD=o.mono?'#000':'#111', ACC=o.mono?'#000':'#1c584f', CH=o.mono?'#000':'#9a3c37';
+  var css="@page{size:A4;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:'Noto Sans TC','Noto Sans JP',sans-serif}body{margin:0}"
+   +".sheet{width:210mm;height:297mm;overflow:hidden;page-break-after:always;position:relative}"
+   +".grid{position:absolute;top:2.25mm;left:0;display:grid;grid-template-columns:repeat(5,42mm);grid-auto-rows:19.5mm}"
+   +".cell{width:42mm;height:19.5mm;border:0.3mm solid "+HEAD+";overflow:hidden;display:flex;flex-direction:column;background:#fff}"
+   +".tth{width:3mm;height:3mm;vertical-align:-0.4mm;fill:"+HEAD+"}"
+   /* C */
+   +".lhead{background:"+HEAD+";color:#fff;font-weight:800;font-size:8pt;text-align:center;line-height:1.35;padding:0.3mm 1mm;white-space:nowrap;overflow:hidden}"
+   +".hstage{color:"+(o.mono?'#fff':'#8fe3d3')+"}.hpid{color:#ccc;font-weight:400;font-size:7pt}"
+   +".lbody{flex:1;display:flex;align-items:center;justify-content:center;gap:1.5mm;padding:0 2mm}"
+   +".lwlab{font-size:7.5pt;color:#333;display:flex;align-items:center;gap:0.5mm;white-space:nowrap}"
+   +".lbig{font-weight:800;font-size:17pt;letter-spacing:0.3pt;color:"+HEAD+"}"
+   +".csub{text-align:center;font-size:7pt;color:"+CH+";line-height:1;padding-bottom:0.6mm}"
+   /* D */
+   +".cellD{padding:0.6mm 2mm;justify-content:center}"
+   +".dtop{display:flex;justify-content:space-between;align-items:center;font-size:7.5pt;gap:1mm}"
+   +".dn{font-weight:700;color:"+HEAD+";white-space:nowrap;overflow:hidden}.dstage{font-weight:800;color:"+ACC+";white-space:nowrap}.dsp{flex:1}"
+   +".dbig{display:flex;align-items:center;justify-content:center;gap:1mm;font-weight:800;font-size:19pt;line-height:1;margin:0.2mm 0;color:"+HEAD+"}"
+   +".dsub{text-align:center;font-size:7pt;color:"+CH+";line-height:1}";
+  return '<!doctype html><html><head><meta charset="utf-8"><title>A4 貼紙</title><style>'+css+'</style></head><body>'+pages+'</body></html>';
+}
+
 function printLabels(){
   var p=buildPatient();if(!p)return;
   var lang=document.getElementById('f_lang').value;
@@ -187,49 +239,10 @@ function printLabels(){
     change:document.getElementById('lb_change').checked};
   var offX=parseFloat(document.getElementById('cal_x').value)||0;
   var offY=parseFloat(document.getElementById('cal_y').value)||0;
-  var LT=labelLangTxt(lang);
+  var style=(document.getElementById('lb_styleD')&&document.getElementById('lb_styleD').checked)?'D':'C';
+  var mono=document.getElementById('f_mono').checked;
   var nm=docName(p,lang);var pid=p.invisalignPID?('PID '+p.invisalignPID):'';
-  function cell(sc){
-    var rows=[];
-    var top=[];
-    if(fields.name) top.push('<span class="lname">'+esc(nm)+'</span>');
-    if(fields.stage) top.push('<span class="lstage">'+esc(LT.stage.replace('%n',sc.no))+'</span>');
-    if(top.length) rows.push('<div class="lrow ltop">'+top.join('<span class="lsep"></span>')+'</div>');
-    var mid=[];
-    if(fields.pid&&pid) mid.push('<span class="lpid">'+esc(pid)+'</span>');
-    if(mid.length) rows.push('<div class="lrow lmid">'+mid.join(' ')+'</div>');
-    var bot=[];
-    if(fields.wear) bot.push('<span class="ldate">'+esc(LT.wear)+' '+mmdd(sc.wearDate)+'</span>');
-    if(fields.change) bot.push('<span class="ldate lch">'+esc(LT.change)+' '+mmdd(sc.changeDate)+'</span>');
-    if(bot.length) rows.push('<div class="lrow lbot">'+bot.join('<span class="lgap"></span>')+'</div>');
-    if(!rows.length) rows.push('<div class="lrow ltop"><span class="lstage">'+sc.no+'</span></div>');
-    return '<div class="cell">'+rows.join('')+'</div>';
-  }
-  // 分頁：每頁 75 格
-  var perPage=75;var pages='';
-  for(var s=0;s<stages.length;s+=perPage){
-    var chunk=stages.slice(s,s+perPage);
-    var cells='';for(var i=0;i<chunk.length;i++)cells+=cell(chunk[i]);
-    // 補滿 75 格（空白）讓格線對齊
-    for(var k=chunk.length;k<perPage;k++)cells+='<div class="cell empty"></div>';
-    pages+='<div class="sheet"><div class="grid" style="transform:translate('+offX+'mm,'+offY+'mm)">'+cells+'</div></div>';
-  }
-  var css='@page{size:A4;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:\'Noto Sans TC\',\'Noto Sans JP\',sans-serif}'
-   +'body{margin:0}'
-   +'.sheet{width:210mm;height:297mm;overflow:hidden;page-break-after:always;position:relative}'
-   +'.grid{position:absolute;top:2.25mm;left:0;display:grid;grid-template-columns:repeat(5,42mm);grid-auto-rows:19.5mm}'
-   +'.cell{width:42mm;height:19.5mm;padding:1mm 2mm;overflow:hidden;display:flex;flex-direction:column;justify-content:center;line-height:1.15}'
-   +'.cell.empty{}'
-   +'.lrow{display:flex;align-items:baseline;gap:1.5mm;white-space:nowrap;overflow:hidden}'
-   +'.ltop{justify-content:space-between}'
-   +'.lname{font-weight:800;font-size:10pt}'
-   +'.lstage{font-weight:800;font-size:11pt;color:#1c584f}'
-   +'.lpid{font-size:7pt;color:#666}'
-   +'.lbot{margin-top:0.5mm;gap:2.5mm}'
-   +'.ldate{font-size:9pt}'
-   +'.lch{color:#9a3c37}'
-   +'.lsep{flex:1}.lgap{flex:0}';
-  var html='<!doctype html><html><head><meta charset="utf-8"><title>A4 貼紙</title><style>'+css+'</style></head><body>'+pages+'</body></html>';
+  var html=algA4LabelSheetHTML(stages,{nm:nm,pid:pid,fields:fields,lang:lang,offX:offX,offY:offY,style:style,mono:mono});
   var w=window.open('','_blank');if(!w){toast('請允許彈出視窗');return;}
   w.document.write(html);w.document.close();setTimeout(function(){try{w.focus();w.print();}catch(e){}},400);
 }
@@ -241,6 +254,7 @@ function genA4(){
   try{printA4Schedule(p,lang,p.wearType,mono,null,paid);}catch(e){toast('產生失敗：'+e.message);}
 }
 
+function pickStyle(st){document.getElementById('lb_styleD').checked=(st==='D');document.getElementById('segC').classList.toggle('on',st==='C');document.getElementById('segD').classList.toggle('on',st==='D');}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 document.getElementById('f_start').value=todayStr();
 </script>
