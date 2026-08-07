@@ -47,7 +47,7 @@ label.fld .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px
   <label class="fld"><span class="lab">佩戴型別</span><select class="ipt" id="f_wear" onchange="onWearChange()"><option value="adult">成人（20h）</option><option value="child">兒童（18h）</option><option value="ipe">IPE（全程）</option></select></label>
   <label class="fld"><span class="lab">起始副 ★</span><input class="ipt" id="f_from" type="number" min="0" value="1" placeholder="1"></label><label class="fld"><span class="lab">結束副 ★</span><input class="ipt" id="f_to" type="number" min="1" placeholder="例如 22"></label>
   <label class="fld"><span class="lab">起戴日（起始副當天）★</span><input class="ipt" id="f_start" type="date"></label>
-  <label class="fld"><span class="lab">每副天數</span><input class="ipt" id="f_days" type="number" min="1" value="7"></label>
+  <label class="fld"><span class="lab">每副天數</span><select class="ipt" id="f_daysSel" onchange="onDaysChange()"><option value="2">2 天</option><option value="3">3 天</option><option value="7" selected>7 天</option><option value="14">14 天</option><option value="custom">自訂…</option></select><input class="ipt" id="f_days" type="number" min="1" value="7" placeholder="輸入天數" style="display:none;margin-top:6px"></label>
   <label class="fld"><span class="lab">語言</span><select class="ipt" id="f_lang"><option value="zh">中文</option><option value="ja">日本語</option><option value="en">English</option></select></label>
 </div>
 </div>
@@ -173,55 +173,48 @@ function a4Word(html,base){
 async function a4Pdf(html,base){
   if(typeof window.jspdf==='undefined'||typeof window.html2canvas==='undefined'){toast('PDF 元件尚未載入，請重新整理');return;}
   toast('產生 PDF 中…');
-  var sm=html.match(/<style>([\s\S]*?)<\/style>/i);
-  var inner=html.replace(/^[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*$/i,'');
-  // 可視但不干擾：固定在畫面外右方，寬度精準 794px（=210mm@96dpi）
-  var host=document.createElement('div');
-  host.style.cssText='position:fixed;top:0;left:0;z-index:-1;width:794px;background:#fff;';
-  var wrap=document.createElement('div');wrap.style.cssText='width:794px;background:#fff;';
-  if(sm){var stEl=document.createElement('style');stEl.textContent=sm[1];host.appendChild(stEl);}
-  wrap.innerHTML=inner;host.appendChild(wrap);document.body.appendChild(host);
-  // 等字體/版面
-  await new Promise(function(r){setTimeout(r,150);});
+  var ifr=document.createElement('iframe');
+  ifr.setAttribute('aria-hidden','true');
+  ifr.style.cssText='position:fixed;left:0;top:0;width:794px;height:1123px;border:0;visibility:hidden;';
+  document.body.appendChild(ifr);
+  var idoc=ifr.contentDocument||ifr.contentWindow.document;
+  idoc.open();idoc.write(html);idoc.close();
+  await new Promise(function(r){setTimeout(r,300);});
+  try{if(idoc.fonts&&idoc.fonts.ready){await idoc.fonts.ready;}}catch(e){}
+  await new Promise(function(r){setTimeout(r,120);});
   var jsPDFo=window.jspdf.jsPDF;var pdf=new jsPDFo({unit:'mm',format:'a4',orientation:'portrait'});
   try{
-    var sheets=wrap.querySelectorAll('.sheet');
-    var targets=sheets.length?sheets:[wrap];
-    var first=true;
-    for(var i=0;i<targets.length;i++){
-      var el=targets[i];
-      var cv=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true,scrollX:0,scrollY:0,windowWidth:794});
-      var img=cv.toDataURL('image/png');
-      // 依比例決定高度（總表可能不足或超過一頁）
-      var pw=210, ph=cv.height*pw/cv.width;
-      if(sheets.length){ // 貼紙：固定滿版 A4
-        if(!first)pdf.addPage();pdf.addImage(img,'PNG',0,0,210,297,'','FAST');first=false;
-      }else{ // 總表：等比，超過一頁自動切頁
-        var pageH=297, y=0, remain=ph;
-        var imgProps={w:cv.width,h:cv.height};
-        // 單張若<=297直接放；否則分頁裁切
-        if(ph<=pageH+1){pdf.addImage(img,'PNG',0,0,pw,ph,'','FAST');}
-        else{
-          var sliceCanvas=document.createElement('canvas');var ctx=sliceCanvas.getContext('2d');
-          var pxPerPage=Math.floor(cv.width*pageH/pw);
-          sliceCanvas.width=cv.width;sliceCanvas.height=pxPerPage;
-          var sy=0,pageIdx=0;
-          while(sy<cv.height){
-            var hh=Math.min(pxPerPage,cv.height-sy);
-            sliceCanvas.height=hh;ctx.clearRect(0,0,sliceCanvas.width,hh);
-            ctx.drawImage(cv,0,sy,cv.width,hh,0,0,cv.width,hh);
-            var slImg=sliceCanvas.toDataURL('image/png');
-            if(pageIdx>0)pdf.addPage();
-            pdf.addImage(slImg,'PNG',0,0,pw,hh*pw/cv.width,'','FAST');
-            sy+=hh;pageIdx++;
-          }
+    var sheets=idoc.querySelectorAll('.sheet');
+    if(sheets.length){
+      for(var i=0;i<sheets.length;i++){
+        var cv=await window.html2canvas(sheets[i],{scale:2,backgroundColor:'#ffffff',useCORS:true});
+        if(i>0)pdf.addPage();
+        pdf.addImage(cv.toDataURL('image/png'),'PNG',0,0,210,297,'','FAST');
+      }
+    }else{
+      var body=idoc.body;body.style.margin='0';
+      var mg='10mm';var mm=html.match(/@page\{[^}]*margin:\s*([0-9.]+mm)/i);if(mm)mg=mm[1];
+      body.style.padding=mg;body.style.boxSizing='border-box';body.style.width='794px';
+      var cv=await window.html2canvas(body,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794});
+      var pw=210,pageH=297,fullH=cv.height*pw/cv.width;
+      if(fullH<=pageH+1){pdf.addImage(cv.toDataURL('image/png'),'PNG',0,0,pw,fullH,'','FAST');}
+      else{
+        var pxPerPage=Math.floor(cv.width*pageH/pw);
+        var sc=document.createElement('canvas');sc.width=cv.width;var ctx=sc.getContext('2d');
+        var sy=0,idx=0;
+        while(sy<cv.height){
+          var hh=Math.min(pxPerPage,cv.height-sy);
+          sc.height=hh;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,sc.width,hh);
+          ctx.drawImage(cv,0,sy,cv.width,hh,0,0,cv.width,hh);
+          if(idx>0)pdf.addPage();
+          pdf.addImage(sc.toDataURL('image/png'),'PNG',0,0,pw,hh*pw/cv.width,'','FAST');
+          sy+=hh;idx++;
         }
       }
     }
-    pdf.save(base+'.pdf');
-    toast('PDF 已下載');
+    pdf.save(base+'.pdf');toast('PDF 已下載');
   }catch(e){toast('PDF 產生失敗：'+(e.message||e));}
-  document.body.removeChild(host);
+  document.body.removeChild(ifr);
 }
 function dl(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);}
 function a4ExportName(kind,p){var nm=(p&&p.name?p.name:'牙套').replace(/[\\\/:*?"<>|（）()]/g,'');return kind+'_'+nm+'_'+todayStr();}
@@ -386,6 +379,7 @@ function printLabels(){
   var spec={cols:parseInt(document.getElementById('sp_cols').value,10)||4,rows:parseInt(document.getElementById('sp_rows').value,10)||11,cw:parseFloat(document.getElementById('sp_cw').value)||52.5,ch:parseFloat(document.getElementById('sp_ch').value)||27};var _o={nm:nm,pid:pid,fields:fields,lang:lang,offX:offX,offY:offY,style:style,mono:mono,spec:spec};return {html:algA4LabelSheetHTML(stages,_o),name:a4ExportName('A4貼紙',p),stages:stages,opts:_o};
 }
 function doLabels(mode){_savePref();var r=printLabels();if(!r)return;if(mode==='word'){a4WordDoc(a4LabelWordHTML(r.stages,r.opts),r.name);}else if(mode==='pdf')a4Pdf(r.html,r.name);else a4Print(r.html);}
+function onDaysChange(){var sel=document.getElementById('f_daysSel'),inp=document.getElementById('f_days');if(!sel||!inp)return;if(sel.value==='custom'){inp.style.display='block';if(!inp.value||['2','3','7','14'].indexOf(inp.value)>=0){}inp.focus();}else{inp.value=sel.value;inp.style.display='none';}try{_renderVisitSummary&&_renderVisitSummary();}catch(e){}}
 function onWearChange(){var w=document.getElementById('f_wear').value;var ff=document.getElementById('f_from');if(!ff)return;var cur=ff.value.trim();if(w==='ipe'){if(cur===''||cur==='1')ff.value='0';}else{if(cur==='0')ff.value='1';}try{_renderVisitSummary&&_renderVisitSummary();}catch(e){}}
 var g_visits=null; // null=自動；否則為副數陣列
 function _autoVisits(){var p=buildPatientQuiet();if(!p)return {stages:[],auto:[]};var st=stageList(p);if(!st.length)return {stages:[],auto:[]};
@@ -422,15 +416,16 @@ function _savePref(){var p={style:(document.getElementById('lb_styleD').checked?
  f_name:document.getElementById('lb_name').checked,f_stage:document.getElementById('lb_stage').checked,f_wear:document.getElementById('lb_wear').checked,f_change:document.getElementById('lb_change').checked,f_pid:document.getElementById('lb_pid').checked,
  cx:document.getElementById('cal_x').value,cy:document.getElementById('cal_y').value,
  sp_cols:document.getElementById('sp_cols').value,sp_rows:document.getElementById('sp_rows').value,sp_cw:document.getElementById('sp_cw').value,sp_ch:document.getElementById('sp_ch').value,
- clinic:document.getElementById('f_clinic').value,phone:document.getElementById('f_phone').value,lang:document.getElementById('f_lang').value};
+ clinic:document.getElementById('f_clinic').value,phone:document.getElementById('f_phone').value,lang:document.getElementById('f_lang').value,daysSel:document.getElementById('f_daysSel').value,days:document.getElementById('f_days').value};
  try{localStorage.setItem('a4labelPref',JSON.stringify(p));}catch(e){}}
 function _applyPref(){var p=_loadPref();var sv=function(id,v){var el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};var sc=function(id,v){var el=document.getElementById(id);if(el&&v!=null)el.checked=!!v;};
  if(p.style)pickStyle(p.style);sc('f_mono',p.mono);sc('lb_name',p.f_name);sc('lb_stage',p.f_stage);sc('lb_wear',p.f_wear);sc('lb_change',p.f_change);sc('lb_pid',p.f_pid);
- sv('cal_x',p.cx);sv('cal_y',p.cy);sv('sp_cols',p.sp_cols);sv('sp_rows',p.sp_rows);sv('sp_cw',p.sp_cw);sv('sp_ch',p.sp_ch);sv('f_clinic',p.clinic);sv('f_phone',p.phone);sv('f_lang',p.lang);}
+ sv('cal_x',p.cx);sv('cal_y',p.cy);sv('sp_cols',p.sp_cols);sv('sp_rows',p.sp_rows);sv('sp_cw',p.sp_cw);sv('sp_ch',p.sp_ch);sv('f_clinic',p.clinic);sv('f_phone',p.phone);sv('f_lang',p.lang);if(p.daysSel){var ds=document.getElementById('f_daysSel');if(ds)ds.value=p.daysSel;}if(p.days){sv('f_days',p.days);}var _ds=document.getElementById('f_daysSel');if(_ds){var inp=document.getElementById('f_days');if(_ds.value==='custom'){if(inp)inp.style.display='block';}else{if(inp){inp.value=_ds.value;inp.style.display='none';}}}}
 
 function pickStyle(st){document.getElementById('lb_styleD').checked=(st==='D');document.getElementById('segC').classList.toggle('on',st==='C');document.getElementById('segD').classList.toggle('on',st==='D');}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 document.getElementById('f_start').value=todayStr();
 try{_applyPref();}catch(e){}
+var _dinp=document.getElementById('f_days');if(_dinp)_dinp.oninput=function(){try{_renderVisitSummary&&_renderVisitSummary();}catch(e){}};
 </script>
 </body></html>
