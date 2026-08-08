@@ -57,6 +57,7 @@ label.fld .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px
 <div class="row" style="margin-bottom:10px">
   <label class="chk"><input type="checkbox" id="f_paid"> 一次付清（印「已付清」）</label>
   <label class="chk"><input type="checkbox" id="f_mono"> 黑白列印</label>
+  <label class="chk" style="gap:6px">掛號費 <select class="ipt" id="f_regfee" style="width:auto;padding:6px 10px"><option value="">（空白）</option><option value="200">200</option><option value="250">250</option></select></label>
 </div>
 <div style="background:var(--soft);border:1px dashed var(--teal);border-radius:10px;padding:10px 12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:13px"><b style="color:var(--teal-d)">回診時間</b>　<span id="visitSummary" style="color:#555">自動</span></div><div class="row" style="gap:6px"><button type="button" class="btn ghost" style="padding:6px 12px" onclick="openVisitEditor()">✏️ 編輯</button><button type="button" class="btn ghost" style="padding:6px 12px" onclick="resetVisits()">↺ 自動</button></div></div><div id="visitEditor" style="display:none;margin-top:10px"><div id="visitChips" style="display:flex;flex-wrap:wrap;gap:5px"></div><div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn" style="padding:6px 14px" onclick="applyVisits()">套用</button><button type="button" class="btn ghost" style="padding:6px 14px" onclick="document.getElementById('visitEditor').style.display='none'">收起</button></div><div class="hint" style="margin-top:6px">綠色＝該副回診。可自由勾選；「↺ 自動」恢復系統建議。</div></div></div><div class="row" style="gap:8px"><button class="btn" style="flex:1" onclick="doA4('print')">🖨️ 列印</button><button class="btn ghost" style="flex:1" onclick="doA4('pdf')">📄 PDF</button><button class="btn ghost" style="flex:1" onclick="doA4('word')">📝 Word</button></div>
 <div class="hint">未編輯時，回診依規則自動標記（第一輪 5/13/21…＋最後一副；IPE 每 30 天；與最後一副相差 4 副以內自動略過）。</div>
@@ -111,7 +112,7 @@ function a4RoundsData(p,onlyFu){const fus=onlyFu?[onlyFu]:(p.followups||[]);cons
 function computeAutoVisits(stages,isFirst,wt){const set=new Set();if(!stages||!stages.length)return set;set.add(stages[stages.length-1].no);if(wt==='ipe'){const startD=new Date(stages[0].wearDate+'T00:00:00');for(let b=30;b<=3650;b+=30){const bd=new Date(startD);bd.setDate(bd.getDate()+b);let found=null;for(const sc of stages){if(new Date(sc.wearDate+'T00:00:00')>=bd){found=sc;break;}}if(!found)break;set.add(found.no);}}else{stages.forEach(sc=>{const n=sc.no;if(isFirst?(n>=5&&(n-5)%8===0):(n>=8&&n%8===0))set.add(n);});}const lastNo=stages[stages.length-1].no;[...set].forEach(n=>{if(n!==lastNo&&lastNo-n<=4)set.delete(n);});return set;}
 
 function a4RoundsData(p,onlyFu){const fus=onlyFu?[onlyFu]:(p.followups||[]);const ar=(p.followups||[]).map(x=>parseInt(x.round,10)||1);const minRound=ar.length?Math.min.apply(null,ar):1;const byRound={};fus.forEach(f=>{const r=parseInt(f.round,10)||1;(byRound[r]=byRound[r]||[]).push(f);});const roundNums=Object.keys(byRound).map(Number).sort((a,b)=>a-b);return roundNums.map(rn=>{const map={};byRound[rn].forEach(f=>{const c=computeFollowup(f);if(c.ok)c.schedule.forEach(sc=>{map[sc.no]=sc;});});const st=Object.keys(map).map(k=>map[k]).sort((a,b)=>a.no-b.no);return {round:rn,stages:st,isFirst:(rn===minRound)};}).filter(r=>r.stages.length);}
-function buildA4ScheduleHTML(p,lang,wt,mono,onlyFu,paid){lang=lang||CONFIG.docLang||'zh';wt=wt||wearOf(p);const T=A4T[lang]||A4T.zh;const wdA=L(lang).wd;
+function buildA4ScheduleHTML(p,lang,wt,mono,onlyFu,paid,regFee){lang=lang||CONFIG.docLang||'zh';wt=wt||wearOf(p);const T=A4T[lang]||A4T.zh;const wdA=L(lang).wd;
   const roundsData=a4RoundsData(p,onlyFu);
   if(!roundsData.length){toast('尚無可列印的牙套排程（需完整起訖副＋起戴日）');return;}
   const vsets=roundsData.map(rd=>{const auto=computeAutoVisits(rd.stages,rd.isFirst,wt);const ov=(p.visitStages&&p.visitStages[rd.round]);return ov?new Set(ov):auto;});const nStage=roundsData.reduce((a,r)=>a+r.stages.length,0);const nVisit=vsets.reduce((a,v)=>a+v.size,0);const dens=nStage+nVisit*1.5;const Z=dens>44?{row:12,pad:'2px 6px',th:11,wd:9,fl:10,flh:11,hint:8,badge:9,bell:11}:dens>26?{row:14,pad:'4px 8px',th:13,wd:11,fl:11,flh:13,hint:9,badge:10,bell:12}:{row:16,pad:'6px 9px',th:14,wd:12,fl:12,flh:15,hint:10,badge:11,bell:13};
@@ -129,7 +130,7 @@ function buildA4ScheduleHTML(p,lang,wt,mono,onlyFu,paid){lang=lang||CONFIG.docLa
   const FT={zh:{visit:'回診',dateHint:'月　　日（星期　　）　　：',inst:'分期',reg:'掛號費',paid:'已付清',note:'回診時將同時進行健保給付之洗牙與口腔檢查，掛號費依衛生局規定收取。'},
 ja:{visit:'来院',dateHint:'月　　日（　曜）　　：',inst:'分割',reg:'受付料',paid:'完済',note:'診療上必要で、健康保険（NHI）の適用条件を満たす場合は、来院時に歯石除去やお口の検査を行うことがあります。受付登録料（掛号費）は、クリニックの料金表に基づいてお支払いいただきます。'},
 en:{visit:'Visit',dateHint:'__ / __ ( ___ )  __ : __',inst:'Installment payment',reg:'Reg. fee',paid:'Paid in full',note:'When clinically indicated and eligible for NHI coverage, scaling and an oral examination may also be performed during your visit. Applicable registration fees will be charged according to the clinic\u2019s fee schedule.'}}[lang];
-const fillBlock=`<div class="fill"><div class="fl"><span class="flab">${FT.visit}</span><span class="fline"><span class="fhint">${FT.dateHint}</span></span></div><div class="fl"><span class="flab">${FT.inst}</span><span class="fline">${paid?`<span class="fpaid">${FT.paid}</span>`:''}</span><span class="flab">${FT.reg}</span><span class="fline"></span></div></div>`;
+const fillBlock=`<div class="fill"><div class="fl"><span class="flab">${FT.visit}</span><span class="fline"><span class="fhint">${FT.dateHint}</span></span></div><div class="fl"><span class="flab">${FT.inst}</span><span class="fline">${paid?`<span class="fpaid">${FT.paid}</span>`:''}</span><span class="flab">${FT.reg}</span><span class="fline">${regFee?`<span class="fpaid">${esc(String(regFee))}</span>`:''}</span></div></div>`;
 const rowBlock=(sc,idx,isV)=>{const v=isV(sc.no);const row=`<div class="r${v?' vrow':(idx%2?' alt':'')}"><span class="st">${sc.no}${v?bell:''}</span><span>${dmd(sc.wearDate)} <span class="wd">${dwd(sc.wearDate)}</span></span><span class="ch">${dmd(sc.changeDate)} <span class="wd">${dwd(sc.changeDate)}</span>${v?`<span class="vbadge">${visitLbl}</span>`:''}</span></div>`;return v?`<div class="grp">${row}${fillBlock}</div>`:row;};
   const thc=`<div class="thc"><span>${T.stage}</span><span>${T.start}</span><span>${T.change}</span></div>`;const thead=`<div class="thead">${thc}${thc}</div>`;
   const cnZh=(n)=>['','一','二','三','四','五','六','七','八','九','十'][n]||n;
@@ -248,7 +249,7 @@ function a4LabelWordHTML(stages,o){
   }
   return pages;
 }
-function a4ScheduleWordHTML(p,lang,wt,mono,onlyFu,paid){
+function a4ScheduleWordHTML(p,lang,wt,mono,onlyFu,paid,regFee){
   // 取排程與回診集合（沿用核心）
   var rounds=a4RoundsData(p,onlyFu);if(!rounds.length)return '';
   var T=A4T[lang]||A4T.zh, wdA=L(lang).wd;
@@ -273,7 +274,7 @@ function a4ScheduleWordHTML(p,lang,wt,mono,onlyFu,paid){
       var bg=v?' background:'+VR+';font-weight:bold;':'';
       return '<td style="border:0.5pt solid #ccc;padding:1mm 1.5mm;font-size:10pt;'+bg+'">'+sc.no+(v?' '+FT.visit:'')+'</td><td style="border:0.5pt solid #ccc;padding:1mm 1.5mm;font-size:10pt;'+bg+'">'+_mmdd(sc.wearDate)+' '+wd1+'</td><td style="border:0.5pt solid #ccc;padding:1mm 1.5mm;font-size:10pt;color:'+CH+';'+bg+'">'+_mmdd(sc.changeDate)+' '+wd2+'</td>';};
     var fill=function(sc){if(!sc||!vs.has(sc.no))return '<td colspan="3" style="border:none"></td>';
-      return '<td colspan="3" style="border:0.5pt solid #eee;padding:0.8mm 1.5mm;font-size:8pt;color:#555">'+FT.visit+'：__月__日 __:__\u3000'+FT.inst+' '+(paid?FT.paid:'__')+'\u3000'+FT.reg+' __</td>';};
+      return '<td colspan="3" style="border:0.5pt solid #eee;padding:0.8mm 1.5mm;font-size:8pt;color:#555">'+FT.visit+'：__月__日 __:__\u3000'+FT.inst+' '+(paid?FT.paid:'__')+'\u3000'+FT.reg+' '+(regFee?regFee:'__')+'</td>';};
     var half=Math.ceil(rd.stages.length/2);var trs='';
     for(var r=0;r<half;r++){var L=rd.stages[r],R=rd.stages[half+r];
       trs+='<tr>'+cells(L)+SPW+cells(R)+'</tr>';
@@ -409,7 +410,7 @@ function genA4(){
   var lang=document.getElementById('f_lang').value;
   var mono=document.getElementById('f_mono').checked;
   var paid=document.getElementById('f_paid').checked;
-  try{var nm=a4ExportName('A4總表',p);if(g_a4mode==='word'){a4WordDoc(a4ScheduleWordHTML(p,lang,p.wearType,mono,null,paid),nm,g_a4win);}else{var html=buildA4ScheduleHTML(p,lang,p.wearType,mono,null,paid);if(g_a4mode==='pdf')a4Pdf(html,nm,g_a4win);else a4Print(html);}}catch(e){if(g_a4win)try{g_a4win.close();}catch(_){}toast('產生失敗：'+e.message);}
+  try{var nm=a4ExportName('A4總表',p);var regFee=document.getElementById('f_regfee').value;if(g_a4mode==='word'){a4WordDoc(a4ScheduleWordHTML(p,lang,p.wearType,mono,null,paid,regFee),nm,g_a4win);}else{var html=buildA4ScheduleHTML(p,lang,p.wearType,mono,null,paid,regFee);if(g_a4mode==='pdf')a4Pdf(html,nm,g_a4win);else a4Print(html);}}catch(e){if(g_a4win)try{g_a4win.close();}catch(_){}toast('產生失敗：'+e.message);}
 }
 var g_a4mode='print',g_a4win=null;function doA4(mode){_savePref();g_a4mode=mode;g_a4win=(mode!=='print')?window.open('','_blank'):null;if(g_a4win){try{g_a4win.document.write('<p style="font:16px sans-serif;padding:24px;color:#555">產生中，請稍候…</p>');}catch(e){}}genA4();}
 
@@ -418,11 +419,11 @@ function _savePref(){var p={style:(document.getElementById('lb_styleD').checked?
  f_name:document.getElementById('lb_name').checked,f_stage:document.getElementById('lb_stage').checked,f_wear:document.getElementById('lb_wear').checked,f_change:document.getElementById('lb_change').checked,f_pid:document.getElementById('lb_pid').checked,
  cx:document.getElementById('cal_x').value,cy:document.getElementById('cal_y').value,
  sp_cols:document.getElementById('sp_cols').value,sp_rows:document.getElementById('sp_rows').value,sp_cw:document.getElementById('sp_cw').value,sp_ch:document.getElementById('sp_ch').value,
- clinic:document.getElementById('f_clinic').value,phone:document.getElementById('f_phone').value,lang:document.getElementById('f_lang').value,daysSel:document.getElementById('f_daysSel').value,days:document.getElementById('f_days').value};
+ clinic:document.getElementById('f_clinic').value,phone:document.getElementById('f_phone').value,lang:document.getElementById('f_lang').value,daysSel:document.getElementById('f_daysSel').value,days:document.getElementById('f_days').value,regfee:document.getElementById('f_regfee').value};
  try{localStorage.setItem('a4labelPref',JSON.stringify(p));}catch(e){}}
 function _applyPref(){var p=_loadPref();var sv=function(id,v){var el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};var sc=function(id,v){var el=document.getElementById(id);if(el&&v!=null)el.checked=!!v;};
  if(p.style)pickStyle(p.style);sc('f_mono',p.mono);sc('lb_name',p.f_name);sc('lb_stage',p.f_stage);sc('lb_wear',p.f_wear);sc('lb_change',p.f_change);sc('lb_pid',p.f_pid);
- sv('cal_x',p.cx);sv('cal_y',p.cy);sv('sp_cols',p.sp_cols);sv('sp_rows',p.sp_rows);sv('sp_cw',p.sp_cw);sv('sp_ch',p.sp_ch);sv('f_clinic',p.clinic);sv('f_phone',p.phone);sv('f_lang',p.lang);if(p.daysSel){var ds=document.getElementById('f_daysSel');if(ds)ds.value=p.daysSel;}if(p.days){sv('f_days',p.days);}var _ds=document.getElementById('f_daysSel');if(_ds){var inp=document.getElementById('f_days');if(_ds.value==='custom'){if(inp)inp.style.display='block';}else{if(inp){inp.value=_ds.value;inp.style.display='none';}}}}
+ sv('cal_x',p.cx);sv('cal_y',p.cy);sv('sp_cols',p.sp_cols);sv('sp_rows',p.sp_rows);sv('sp_cw',p.sp_cw);sv('sp_ch',p.sp_ch);sv('f_clinic',p.clinic);sv('f_phone',p.phone);sv('f_lang',p.lang);if(p.daysSel){var ds=document.getElementById('f_daysSel');if(ds)ds.value=p.daysSel;}if(p.days){sv('f_days',p.days);}if(p.regfee!=null){var rf=document.getElementById('f_regfee');if(rf)rf.value=p.regfee;}var _ds=document.getElementById('f_daysSel');if(_ds){var inp=document.getElementById('f_days');if(_ds.value==='custom'){if(inp)inp.style.display='block';}else{if(inp){inp.value=_ds.value;inp.style.display='none';}}}}
 
 function pickStyle(st){document.getElementById('lb_styleD').checked=(st==='D');document.getElementById('segC').classList.toggle('on',st==='C');document.getElementById('segD').classList.toggle('on',st==='D');}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
