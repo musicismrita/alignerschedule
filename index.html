@@ -380,7 +380,7 @@ function printLabels(){
   var nm=docName(p,lang);var pid=p.invisalignPID?('PID '+p.invisalignPID):'';
   var spec={cols:parseInt(document.getElementById('sp_cols').value,10)||4,rows:parseInt(document.getElementById('sp_rows').value,10)||11,cw:parseFloat(document.getElementById('sp_cw').value)||52.5,ch:parseFloat(document.getElementById('sp_ch').value)||27};var clinicLine=(document.getElementById('lb_clinic')&&document.getElementById('lb_clinic').checked)?((document.getElementById('f_clinic').value||'')+'・廖朗蓁醫師'):'';var _o={nm:nm,pid:pid,fields:fields,lang:lang,offX:offX,offY:offY,style:style,mono:mono,spec:spec,clinicLine:clinicLine};return {html:algA4LabelSheetHTML(stages,_o),name:a4ExportName('A4貼紙',p),stages:stages,opts:_o};
 }
-function doLabels(mode){_savePref();var win=(mode!=='print')?window.open('','_blank'):null;if(win){try{win.document.write('<p style="font:16px sans-serif;padding:24px;color:#555">產生中，請稍候…</p>');}catch(e){}}var r=printLabels();if(!r){if(win)try{win.close();}catch(e){}return;}if(mode==='word'){a4WordDoc(a4LabelWordHTML(r.stages,r.opts),r.name,win);}else if(mode==='pdf')a4Pdf(r.html,r.name,win);else a4Print(r.html);}
+function doLabels(mode){_savePref();var win=(mode==='pdf')?window.open('','_blank'):null;if(win){try{win.document.write('<p style="font:16px sans-serif;padding:24px;color:#555">產生中，請稍候…</p>');}catch(e){}}var r=printLabels();if(!r){if(win)try{win.close();}catch(e){}return;}if(mode==='word'){a4WordDoc(a4LabelWordHTML(r.stages,r.opts),r.name,win);}else if(mode==='pdf')a4Pdf(r.html,r.name,win);else a4Print(r.html);}
 var CLINIC_TEL={'樂晨牙醫':'(02) 2711-7648','群富牙醫':'(02) 2701-1727','皇齊牙醫':'(02) 2793-5227'};
 function onClinicChange(){var c=document.getElementById('f_clinic').value;var ph=document.getElementById('f_phone');if(ph)ph.value=CLINIC_TEL[c]||'';}
 function onDaysChange(){var sel=document.getElementById('f_daysSel'),inp=document.getElementById('f_days');if(!sel||!inp)return;if(sel.value==='custom'){inp.style.display='block';if(!inp.value||['2','3','7','14'].indexOf(inp.value)>=0){}inp.focus();}else{inp.value=sel.value;inp.style.display='none';}try{_renderVisitSummary&&_renderVisitSummary();}catch(e){}}
@@ -413,7 +413,7 @@ function genA4(){
   var paid=document.getElementById('f_paid').checked;
   try{var nm=a4ExportName('A4總表',p);var regFee=document.getElementById('f_regfee').value;if(g_a4mode==='word'){a4WordDoc(a4ScheduleWordHTML(p,lang,p.wearType,mono,null,paid,regFee),nm,g_a4win);}else{var html=buildA4ScheduleHTML(p,lang,p.wearType,mono,null,paid,regFee);if(g_a4mode==='pdf')a4Pdf(html,nm,g_a4win);else a4Print(html);}}catch(e){if(g_a4win)try{g_a4win.close();}catch(_){}toast('產生失敗：'+e.message);}
 }
-var g_a4mode='print',g_a4win=null;function doA4(mode){_savePref();g_a4mode=mode;g_a4win=(mode!=='print')?window.open('','_blank'):null;if(g_a4win){try{g_a4win.document.write('<p style="font:16px sans-serif;padding:24px;color:#555">產生中，請稍候…</p>');}catch(e){}}genA4();}
+var g_a4mode='print',g_a4win=null;function doA4(mode){_savePref();g_a4mode=mode;g_a4win=(mode==='pdf')?window.open('','_blank'):null;if(g_a4win){try{g_a4win.document.write('<p style="font:16px sans-serif;padding:24px;color:#555">產生中，請稍候…</p>');}catch(e){}}genA4();}
 
 function _loadPref(){try{return JSON.parse(localStorage.getItem('a4labelPref')||'{}');}catch(e){return {};}}
 function _savePref(){var p={style:(document.getElementById('lb_styleD').checked?'D':'C'),mono:document.getElementById('f_mono').checked,
