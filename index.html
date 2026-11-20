@@ -44,8 +44,8 @@ label.fld .lab{display:block;font-size:12px;color:var(--muted);margin-bottom:4px
   <label class="fld"><span class="lab">診所</span><select class="ipt" id="f_clinic" onchange="onClinicChange()"><option value="樂晨牙醫">樂晨牙醫</option><option value="群富牙醫">群富牙醫</option><option value="皇齊牙醫">皇齊牙醫</option></select></label>
   <label class="fld"><span class="lab">診所電話（自動帶入）</span><input class="ipt" id="f_phone" readonly style="background:#f4f7f6"></label>
   <label class="fld"><span class="lab">病患姓名</span><input class="ipt" id="f_name" placeholder="王小明"></label>
-  <label class="fld"><span class="lab">英文名（選填）</span><input class="ipt" id="f_en" placeholder="Wang, Xiao-Ming"></label>
-  <label class="fld"><span class="lab">PID（選填）</span><input class="ipt" id="f_pid" placeholder="12345678"></label>
+  <input type="hidden" id="f_en" value="">
+  <input type="hidden" id="f_pid" value="">
   <label class="fld"><span class="lab">佩戴型別</span><select class="ipt" id="f_wear" onchange="onWearChange()"><option value="adult">成人（20h）</option><option value="child">兒童（18h）</option><option value="ipe">IPE（全程）</option></select></label>
   <label class="fld"><span class="lab">起始副 ★</span><input class="ipt" id="f_from" type="number" min="0" value="1" placeholder="1"></label><label class="fld"><span class="lab">結束副 ★</span><input class="ipt" id="f_to" type="number" min="1" placeholder="例如 22"></label>
   <label class="fld"><span class="lab">起戴日（起始副當天）★</span><input class="ipt" id="f_start" type="date"></label>
@@ -475,7 +475,7 @@ function printLabels(){
     change:document.getElementById('lb_change').checked};
   var offX=parseFloat(document.getElementById('cal_x').value)||0;
   var offY=parseFloat(document.getElementById('cal_y').value)||0;
-  var style=(document.getElementById('lb_styleD')&&document.getElementById('lb_styleD').checked)?'D':'C';
+  var style='D';
   var mono=document.getElementById('f_mono').checked;
   var nm=docName(p,lang);var pid=p.invisalignPID?('PID '+p.invisalignPID):'';
   var spec={cols:parseInt(document.getElementById('sp_cols').value,10)||4,rows:parseInt(document.getElementById('sp_rows').value,10)||11,cw:parseFloat(document.getElementById('sp_cw').value)||52.5,ch:parseFloat(document.getElementById('sp_ch').value)||27};var clinicLine=(document.getElementById('lb_clinic')&&document.getElementById('lb_clinic').checked)?((document.getElementById('f_clinic').value||'')+'・廖朗蓁醫師'):'';var border=(document.getElementById('lb_border_on')&&document.getElementById('lb_border_on').checked)?'C':'none';var _o={nm:nm,pid:pid,fields:fields,lang:lang,offX:offX,offY:offY,style:style,mono:mono,spec:spec,clinicLine:clinicLine,border:border};return {html:algA4LabelSheetHTML(stages,_o),name:('A4貼紙_'+((p.name||'牙套').replace(/[\\\/:*?"<>|（）()\s]/g,'')||'牙套')),stages:stages,opts:_o};
