@@ -127,7 +127,7 @@ function buildA4ScheduleHTML(p,lang,wt,mono,onlyFu,paid,regFee){lang=lang||CONFI
   const dbet=(a,b)=>{const d1=new Date(a+'T00:00:00'),d2=new Date(b+'T00:00:00');return Math.round((d2-d1)/86400000);};
   let iv=7;{const s0=roundsData[0].stages[0];const g=dbet(s0.wearDate,s0.changeDate)+1;if(g>0)iv=g;}
   const every={zh:'每 '+iv+' 天'+(iv===7?'（每週）':iv===14?'（每兩週）':''),ja:iv+'日ごと'+(iv===7?'（毎週）':iv===14?'（隔週）':''),en:'every '+iv+' days'+(iv===7?' (weekly)':iv===14?' (biweekly)':'')}[lang];
-  const isIpe=(wt==='ipe');
+  const isIpe=true;/* 總表一律只顯示起戴日 */
   const ruleTxt=(wt==='ipe'?{zh:'每 '+iv+' 天更換',ja:iv+'日ごとに交換',en:'Change every '+iv+' days'}:{zh:every+'的「週六」換新牙套，前一晚（週五）睡前換下',ja:every+'の「土曜」に新しいインビザラインへ、前夜（金）の就寝前に交換',en:(iv===7?'Change to your next aligner every Friday at bedtime.':iv===14?'Change to your next aligner every other Friday at bedtime.':('Change to your next aligner every '+iv+' days, at bedtime.'))})[lang];
   const _w0=((WEAR_CARE[wt]||WEAR_CARE.adult)[lang]||'');const careArr=wt==='ipe'?[_w0]:[_w0].concat(T.care.slice(1));
   const visitLbl={zh:'回診',ja:'来院',en:'Visit'}[lang];
